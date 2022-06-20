@@ -45,7 +45,6 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
   }
 
   onTodoCreate = async (event: React.ChangeEvent<HTMLButtonElement>) => {
-    console.log("check")
     try {
       if (!this.state.newTodoName.trim()) {
         throw Error("Field must not empty")
@@ -55,12 +54,10 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
         name: this.state.newTodoName,
         dueDate
       })
-      console.log(newTodo)
       this.setState({
         todos: [...this.state.todos, newTodo],
         newTodoName: ''
       })
-      console.log("demo2")
     } catch (e) {
       alert(`Todo creation failed ${e}`)
     }

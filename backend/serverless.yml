@@ -1,6 +1,6 @@
 org: vnonline2008
-app: serverless-todo-app
-service: serverless-todo-app-service
+app: serverless-capstone-app
+service: capstone-app-service
 
 plugins:
   - serverless-webpack
@@ -19,13 +19,14 @@ provider:
     lambda: true
     apiGateway: true
 
-  # Use these variables in the functions and resouorces section below. For example, 
+  # Use these variables in the functions and resouorces section below. For example,
   # ${self:provider.environment.ATTACHMENT_S3_BUCKET}
   environment:
     TODOS_TABLE: Todos-tungtt44-${self:provider.stage}
     TODOS_CREATED_AT_INDEX: CreatedAtIndex-tungtt44
-    ATTACHMENT_S3_BUCKET: serverless-tungtt44-todo-images-${self:provider.stage}
+    ATTACHMENT_S3_BUCKET: tungtt44-todo-images-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
+    CONNECTION_TABLE: Connection-${self:provider.stage}
 
   logs:
     # Enable API Gateway logs
@@ -150,6 +151,57 @@ functions:
           - dynamodb:UpdateItem
         Resource: !GetAtt TodosTable.Arn
 
+  SendUploadNotifications:
+    environment:
+      STAGE: ${self:provider.stage}
+      API_ID:
+        Ref: WebsocketsApi
+    handler: src/lambda/s3/sendNotifications.handler
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:PutItem
+          - dynamodb:DeleteItem
+        Resource: arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.CONNECTION_TABLE}
+      - Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:PutObject
+        Resource: arn:aws:s3:::${self:provider.environment.ATTACHMENT_S3_BUCKET}/*
+      - Effect: Allow
+        Action:
+          - execute-api:ManageConnections
+        Resource: arn:aws:execute-api:${opt:region, self:provider.region}:*:*/*/POST/@connections/{connectionId}
+
+  # Connect websocket
+  ConnectHandler:
+    handler: src/lambda/websocket/connect.handler
+    events:
+      - websocket:
+          route: $connect
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:PutItem
+          - dynamodb:DeleteItem
+        Resource: arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.CONNECTION_TABLE}
+
+  # Disconnect websocket
+  DisconnectHandler:
+    handler: src/lambda/websocket/disconnect.handler
+    events:
+      - websocket:
+          route: $disconnect
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+          - dynamodb:PutItem
+          - dynamodb:DeleteItem
+        Resource: arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.CONNECTION_TABLE}
+
 resources:
   Resources:
     # Add necessary AWS resources. You will need at least the following AWS resources
@@ -193,6 +245,21 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
+    # TODO: Create a DynamoDB table with local secondary index and a composite key
+    WebSocketConnectionDynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: connectionId
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: connectionId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.CONNECTION_TABLE}
+
 
     # TODO: Complete the bucket properties below. 
     # Do not forget to add the CorsConfiguration propoerty
@@ -200,6 +267,10 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:provider.environment.ATTACHMENT_S3_BUCKET}
+        NotificationConfiguration:
+          LambdaConfigurations:
+            - Event: s3:ObjectCreated:*
+              Function: !GetAtt SendUploadNotificationsLambdaFunction.Arn
         CorsConfiguration:
           CorsRules:
             -
@@ -214,6 +285,15 @@ resources:
               AllowedHeaders:
                 - '*'
               MaxAge: 3600
+
+    SendUploadNotificationsPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref SendUploadNotificationsLambdaFunction
+        Principal: s3.amazonaws.com
+        Action: lambda:InvokeFunction
+        SourceAccount: !Ref AWS::AccountId
+        SourceArn: arn:aws:s3:::${self:provider.environment.ATTACHMENT_S3_BUCKET}
 
     # TODO: Complete the policy below and attach it to the bucket defined above
     # For cross referencing the name of the bucket, use "!Ref AttachmentsBucket"
