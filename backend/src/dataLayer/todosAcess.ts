@@ -37,7 +37,7 @@ export class TodosAccess {
     }
 
     /** Get todos for userid */
-    async getTodosForUser(userId: string): Promise<any> {
+    async getAllByPageIndex(userId: string, pageIndex: number): Promise<any> {
         logger.info('[Repo] Start getting todos for userId ', userId)
         const todos = await this.docClient.query({
             TableName: this.todosTable,
@@ -48,7 +48,11 @@ export class TodosAccess {
             }
         }).promise()
         logger.info('[Repo] End getting todos for userId ', userId)
-        return todos
+        const limit = 3
+        const items = todos.Items
+        const start = (pageIndex - 1) * limit
+        const end = pageIndex * limit
+        return items.slice(start, end)
     }
 
     /** Update todo by userId & todoId */

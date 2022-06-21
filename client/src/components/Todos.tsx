@@ -27,13 +27,17 @@ interface TodosState {
   todos: Todo[]
   newTodoName: string
   loadingTodos: boolean
+  pageIndex: number
+  isFinished: boolean
 }
 
 export class Todos extends React.PureComponent<TodosProps, TodosState> {
   state: TodosState = {
     todos: [],
     newTodoName: '',
-    loadingTodos: true
+    loadingTodos: true,
+    pageIndex: 1,
+    isFinished: false
   }
 
   handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,19 +97,37 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
   }
 
   async componentDidMount() {
-    try {
-      const todos = await getTodos(this.props.auth.getIdToken())
-      this.setState({
-        todos,
-        loadingTodos: false
-      })
-    } catch (e) {
-      let error_message = 'Failed to fetch todos'
-      if (e instanceof Error) {
-        error_message = e.message
-      }
-      alert(error_message)
+    this.loadingData()
+  }
+
+  async componentDidUpdate(beforeProps: any, beforeState: any) {
+    if (beforeState.pageIndex != this.state.pageIndex) {
+      this.loadingData()
     }
+  }
+
+  loadingData = async () => {
+    const pageIndex = this.state.pageIndex
+    try {
+      const todos = await getTodos(this.props.auth.idToken, pageIndex)
+      if (!(todos.length)) {
+        this.setState( (beforeState) => ({
+          isFinished: true
+        }) )
+      }
+      this.setState( (beforeState) => ({
+        todos: [...beforeState.todos, ...todos],
+        loadingTodos: false
+      }) )
+    } catch (e) {
+      alert(`Failed to get todos: ${e}`)
+    }
+  }
+
+  loadMoreTodos = () => {
+    this.setState( (beforeState) => ({
+      pageIndex: beforeState.pageIndex + 1
+    }) )
   }
 
   render() {
@@ -116,6 +138,9 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
         {this.renderCreateTodoInput()}
 
         {this.renderTodos()}
+        <div>
+          <Button onClick={this.loadMoreTodos} disabled={this.state.isFinished}>Click here to load data...</Button>
+        </div>
       </div>
     )
   }

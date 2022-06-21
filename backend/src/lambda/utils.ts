@@ -14,3 +14,11 @@ export function getUserId(event: APIGatewayProxyEvent): string {
 
   return parseUserId(jwtToken)
 }
+
+export function getParams(event: APIGatewayProxyEvent, paramName: string) {
+  const pathVariable = event.pathParameters
+  if (pathVariable) {
+    return pathVariable[paramName]
+  }
+  return undefined
+}

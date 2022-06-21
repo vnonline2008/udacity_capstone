@@ -60,14 +60,10 @@ functions:
     events:
       - http:
           method: get
-          path: todos
+          path: todos/pagination/{pageIndex}
           cors: true
           authorizer: Auth
     iamRoleStatements:
-      # - Effect: Allow
-      #   Action:
-      #     - dynamodb:Query
-      #   Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
       - Effect: Allow
         Action:
           - dynamodb:Query

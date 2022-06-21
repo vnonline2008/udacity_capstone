@@ -24,9 +24,9 @@ export async function createTodo(newTodo: CreateTodoRequest, userId: string) {
     return await todosAccess.createTodosAccess(newItem)
 }
 
-export async function getTodosForUser(userId: string) {
+export async function getAllByPageIndex(userId: string, pageIndex: number) {
     logger.info(`[Service] Start getting todos for userId: ${userId}`)
-    return await todosAccess.getTodosForUser(userId)
+    return await todosAccess.getAllByPageIndex(userId, pageIndex)
 }
 
 export async function updateTodo(userId: string, todoId: string, updatedTodo: UpdateTodoRequest) {
